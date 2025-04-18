@@ -34,10 +34,10 @@ async function getAccessToken() {
     const signStr = sortedKeys.map(k => `${k}${params[k]}`).join('');
     const sign = md5(appSecret + signStr + appSecret).toUpperCase();
 
-    const res = await axios.post("https://eu-open.tracksolidpro.com/route/rest", {
-        ...params,
-        sign
-    });
+    const res = await axios.post("https://eu-open.tracksolidpro.com/route/rest",
+        new URLSearchParams({ ...params, sign }),
+        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
 
     if (res.data.code === 0) {
         accessToken = res.data.result.accessToken;
@@ -67,10 +67,10 @@ app.get('/location', async (req, res) => {
         const signStr = sortedKeys.map(k => `${k}${params[k]}`).join('');
         const sign = md5(appSecret + signStr + appSecret).toUpperCase();
 
-        const response = await axios.post("https://eu-open.tracksolidpro.com/route/rest", {
-            ...params,
-            sign
-        });
+        const response = await axios.post("https://eu-open.tracksolidpro.com/route/rest",
+            new URLSearchParams({ ...params, sign }),
+            { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+        );
 
         const loc = response.data.result[0];
         res.json({ lat: loc.lat, lng: loc.lng });
