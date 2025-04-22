@@ -7,11 +7,17 @@ const PORT = process.env.PORT || 3000;
 const appKey = "8FB345B8693CCD0030874ECE0B95805F";
 const appSecret = "c07101ce49e144ebb04016a39e8b472d";
 const user = "Offlimits";
-const password = md5("cd9323048162e373f71fcfad77b7eb67");
+const password = "cd9323048162e373f71fcfad77b7eb67"; // MD5 of MakinatPortokalli23
 const imei = "862798051314108";
 
 let accessToken = null;
 let tokenExpiry = 0;
+
+function generateSign(params) {
+    const sortedKeys = Object.keys(params).sort();
+    const signStr = sortedKeys.map(k => k + params[k]).join('');
+    return md5(appSecret + signStr + appSecret).toUpperCase();
+}
 
 async function getAccessToken() {
     const now = Date.now();
@@ -30,9 +36,7 @@ async function getAccessToken() {
         expires_in: 7200
     };
 
-    const sortedKeys = Object.keys(params).sort();
-    const signStr = sortedKeys.map(k => `${k}${params[k]}`).join('');
-    const sign = md5(appSecret + signStr + appSecret).toUpperCase();
+    const sign = generateSign(params);
 
     const res = await axios.post("https://eu-open.tracksolidpro.com/route/rest",
         new URLSearchParams({ ...params, sign }),
@@ -63,9 +67,7 @@ app.get('/location', async (req, res) => {
             imeis: imei
         };
 
-        const sortedKeys = Object.keys(params).sort();
-        const signStr = sortedKeys.map(k => `${k}${params[k]}`).join('');
-        const sign = md5(appSecret + signStr + appSecret).toUpperCase();
+        const sign = generateSign(params);
 
         const response = await axios.post("https://eu-open.tracksolidpro.com/route/rest",
             new URLSearchParams({ ...params, sign }),
