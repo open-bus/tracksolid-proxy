@@ -1,62 +1,59 @@
-// server.js
 const express = require("express");
 const axios = require("axios");
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = process.env.PORT || 10000;
 
-const TRACKSOLID = {
-  appKey: process.env.APP_KEY,
-  appSecret: process.env.APP_SECRET,
-  account: process.env.ACCOUNT,
-  password: process.env.PASSWORD,
-};
+// TracksolidPro credentials (set as environment variables)
+const appKey = process.env.APP_KEY;
+const appSecret = process.env.APP_SECRET;
+const account = process.env.ACCOUNT;
+const password = process.env.PASSWORD;
 
-let accessToken = null;
+// In-memory token cache
+let token = null;
+let tokenTime = 0;
 
-async function getAccessToken() {
-  try {
-    const res = await axios.post("https://open.10086cloud.com/api/oauth2/token", {
-      appKey: TRACKSOLID.appKey,
-      appSecret: TRACKSOLID.appSecret,
-      account: TRACKSOLID.account,
-      password: TRACKSOLID.password,
-    });
-    accessToken = res.data.data.accessToken;
-    return accessToken;
-  } catch (err) {
-    console.error("Auth error:", err.response?.data || err.message);
-    return null;
-  }
+// Get access token
+async function getToken() {
+  const now = Date.now();
+  if (token && now - tokenTime < 2 * 60 * 60 * 1000) return token;
+
+  const { data } = await axios.post("https://www.tracksolidpro.com/api/user/login", {
+    appKey,
+    appSecret,
+    account,
+    password,
+  });
+
+  token = data.data.token;
+  tokenTime = now;
+  return token;
 }
 
-app.get("/locations", async (req, res) => {
-  if (!accessToken) await getAccessToken();
-  if (!accessToken) return res.status(500).json({ error: "Auth failed" });
-
+// GET /location/:imei route
+app.get("/location/:imei", async (req, res) => {
   try {
-    const imeis = ["862798051314033", "862798051314108"];
-    const response = await axios.post(
-      "https://open.10086cloud.com/api/location/list",
-      { imeiList: imeis },
-      { headers: { accessToken } }
+    const token = await getToken();
+    const imei = req.params.imei;
+
+    const { data } = await axios.post(
+      "https://www.tracksolidpro.com/api/location/getLatest",
+      { imei },
+      {
+        headers: { token },
+      }
     );
 
-    const locations = response.data.data.map(dev => ({
-      imei: dev.imei,
-      lat: dev.latitude,
-      lng: dev.longitude,
-      time: dev.gpsTime,
-    }));
+    if (!data.data) return res.status(404).json({ error: "Device not found" });
 
-    res.json(locations);
+    const { lat, lng } = data.data;
+    res.json({ lat, lng });
   } catch (err) {
-    if (err.response?.data?.code === 401) {
-      accessToken = null;
-      return res.redirect("/locations");
-    }
-    console.error("Location error:", err.response?.data || err.message);
-    res.status(500).json({ error: "Failed to fetch locations" });
+    console.error("Error fetching location:", err.message);
+    res.status(500).json({ error: "Failed to get location" });
   }
 });
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+});
